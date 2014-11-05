@@ -1,192 +1,173 @@
-/*
-       jQuery Drawer Plugin 1.0.0
+;
+// Drawers
+// 
+// data-drawer-effect="slide"
+// data-drawer-direction="up | down | left | right"
+// data-drawer-target="#drawer-target"
+// data-drawer-style="single | multi"
+// 
+// Usage: 
+//
+// <div id="mini" data-drawer-effect="slide" data-drawer-direction="right" data-drawer-target="#drawer-target" data-drawer-style="multi">
+//     <button data-toggle="drawer" data-target="#my-drawer">Click</button>
+//     <div class="drawer-container">
+//         <div id="my-drawer" class="drawer">My drawer.</div>
+//     </div>
+//     <div id="drawer-target">My page data.....</div>
+// </div>
+//
+//<script type="text/javascript">
+//     $(document).ready(function () { var d = $('#mini').drawer(); });
+//</script>
+//
+(function($) {
 
-       Released into Public Domain by J Paul Duncan (jpaulduncan@gmail.com)
-       
-       Usage:
-       ------
-       JavaScript Call:  $('[data-action="drawer"]').drawer();
-       JavaScript Call with settings: $('[data-action="drawer"]').drawer({ onOpen : function(data){ alert(data.title); });
+    'use strict';
 
-       Options:
-       --------
-       onInit (knob)
-        knob : the knob object being initialized.
-
-       onOpen (data)
-        data.title : the title of the drawer indicated in [data-drawer-title] on the knob.
-        data.knob : the knob object used to open the drawer indicated by [data-action="drawer"]
-        data.drawer : the drawer object indicated by [data-target] on the knob.
-       
-       onClose (data) 
-        data.title : the title of the drawer indicated in [data-drawer-title] on the knob.
-        data.knob : the knob object used to open the drawer indicated by [data-action="drawer"]
-        data.drawer : the drawer object indicated by [data-target] on the knob.
-       
-       onDrawerSwitch (target) 
-        target: the drawer being switched to.
-
-       openEffect (string) : the jQuery effect to apply when the drawer is opened. Default: slideDown
-       closeEffect (string) : the jQuery effect to apply when the drawer is closed.  Default: slideUp
-
-       knobOnClass (string) : the CSS class to toggle when the knob is selected.
-
-       Example:  
-       --------
-       <button class="btn btn-success" data-action="drawer" data-target="#myDrawer" data-drawer-title="My Drawer">Toggle Drawer!</button>
-       
-       <div id="myDrawer" style="display:none;">
-        This is my drawer!
-       </div>
-        
-       <script type="text/javascript">
-        $(document).ready(function () { $('[data-action="drawer"]').drawer(); } );
-       </script>
-
-*/
-(function ($)
-{
-    var methods = {
-        knobId: 1,
-        init: function (settings)
-        {
-            // this is a knob
-            return this.each(function ()
-            {
-                // Set the options
-                this.options = $.extend(
-                    {},
-                    $.fn.drawer.defaults,
-                    settings);
-
-                // Helper pointers
-                var me = this, self = $(this);
-                
-                // Set up a unique id for our knob
-                self.attr("data-drawer-knob-id", methods.knobId++);
-                self.on("click", null, function ()
-                {
-                    var title = $(this).attr("data-drawer-title");
-                    var targetDrawer = $($(this).attr("data-target"));
-                    var knobId = targetDrawer.attr("data-current-knob-id");
-                    var currentKnob = $('[data-drawer-knob-id="' + knobId + '"]');
-                    if (targetDrawer)
-                    {
-                        if (currentKnob) { currentKnob.removeClass(me.options.knobOnClass); }
-                        self.addClass(me.options.knobOnClass);
-                        if (knobId)
-                        {
-                            if (self.attr("data-drawer-knob-id") == knobId)
-                            {
-                                if (targetDrawer.attr("data-drawer-state") == "close")
-                                {
-                                    methods._open(self, title, targetDrawer, me.options);
-                                }
-                                else
-                                {
-                                    methods._close(self, title, targetDrawer, me.options);
-                                }
-                            }
-                            else
-                            {
-                                if (this.options.onDrawerSwitch && this.options.onDrawerSwitch != undefined)
-                                {
-                                    this.options.onDrawerSwitch(targetDrawer);
-                                }
-                               
-                                methods._open(self, title, targetDrawer, me.options);
-
-                            }
-                        } else
-                        {
-                            methods._open(self, title, targetDrawer, me.options);
-                        }
-                    } else
-                    {
-                        alert("Drawer: data-target not indicated.");
-                        return;
-                    }
-                });
-
-                // Callback onInit
-                if (me.options.onInit && me.options.onInit != undefined)
-                {
-                    me.options.onInit(this)
-                }
-            })
+    var defaults = {
+        onInit: function() {
         },
-        _open: function (knob, title, targetDrawer, options)
-        {
-            
-            targetDrawer.find('.drawer-title').first().html(title);
-            targetDrawer.attr("data-drawer-state", "open");
-            targetDrawer.attr("data-current-knob-id", knob.attr("data-drawer-knob-id"));
-            
-            if (options.openEffect == undefined) { targetDrawer.slideDown(); } else {
-                targetDrawer.effect(options.openEffect);
-            }
+        onShow: function() {
+        },
+        onHide: function() {
+        },
+        container: 'drawer-container',
+        effect: 'slide',
+        direction: 'up',
+        target: undefined,
+        onClass: 'col-lg-3',
+        targetOnClass: 'col-lg-9 pull-right',
+        style: "multi",
+        buttonOnClass: 'btn-primary',
+        buttonOffClass: 'btn-default'
+    };
 
-            // Allows you to have a different element also close the drawer.
-            targetDrawer.find('[data-action="drawer-close"]').first().one("click", null, function ()
-            {
-                methods._close(knob, title, targetDrawer, options);
+    $.fn.drawer = function(options) {
+
+        if (typeof options === 'undefined') {
+            options = {};
+        }
+
+        if (this.length === 0)
+            return this;
+
+        var drawer = this;
+        var knobs = $(this).find('[data-toggle="drawer"]');
+
+        var init = function() {
+
+            for (var key in defaults) {
+                if (defaults.hasOwnProperty(key)) {
+                    if (drawer.attr('data-drawer-' + key.toLowerCase())) {
+                        options[key] = drawer.data('drawer-' + key.toLowerCase());
+                    }
+                }
+            };
+
+            drawer.settings = $.extend({}, defaults, options);
+
+            knobs.each(function() {
+
+                $(this).on("click", null, function() {
+
+                    var current = this;
+
+                    var p = getKnobData(current);
+
+                    if ($(p.targetDrawer).hasClass("in")) {
+                        close(p);
+                    }
+                    else {
+                        open(p);
+                    };
+
+                    if (drawer.settings.style == "single") {
+                        
+                        knobs.each(function() {
+                            if (this != current) {
+                                close(getKnobData(this));
+                            }
+                        });
+                    };
+                });
             });
 
-            if (options.onOpen && options.onOpen != undefined)
-            {
-                options.onOpen(
-                    {
-                        knob: knob,
-                        title: title,
-                        drawer: targetDrawer
-                    });
+            drawer.settings.onInit();
+        };
+
+        var getKnobData = function(knob) {
+
+            var slideDirection = $(knob).attr("data-direction");
+            var targetDrawer = $(knob).attr("data-target");
+            var targetContainer = $(targetDrawer).parent();
+
+            if (slideDirection == "") {
+                slideDirection = drawer.settings.direction;
+            };
+
+            return {
+                knob: knob,
+                direction: slideDirection,
+                targetDrawer: $(knob).attr("data-target"),
+                targetContainer: targetContainer,
+                hasContainer: targetContainer.hasClass("drawer-container"),
+                targetDiv: $(drawer.settings.target)
             }
-        },
-        _close: function (knob, title, targetDrawer, options)
-        {
-            knob.removeClass(options.knobOnClass);
-            targetDrawer.attr("data-drawer-state", "close");
-            if (options.closeEffect == undefined) { targetDrawer.slideUp(); } else {
-                targetDrawer.effect(options.closeEffect);
+        };
+
+        var close = function(p) {
+
+            $(p.knob).removeClass(drawer.settings.buttonOnClass);
+            $(p.knob).addClass(drawer.settings.buttonOffClass);
+
+            $(p.targetDrawer).removeClass("in");
+
+            if (p.hasContainer) {
+                $(p.targetDrawer).hide();
+            }
+            else {
+                $(p.targetDrawer).removeClass(drawer.settings.onClass);
+                $(p.targetDrawer).hide(drawer.settings.effect, {direction: p.direction});
             }
 
-            if (options.onClose && options.onClose != undefined)
-            {
-                options.onClose(
-                    {
-                        knob: knob,
-                        title: title,
-                        drawer: targetDrawer
-                    });
+            if ($(drawer).find('.drawer.in').length == 0) {
+
+                if (p.hasContainer) {
+                    $(p.targetContainer).hide(drawer.settings.effect, {direction: p.direction});
+                    $(p.targetContainer).removeClass(drawer.settings.onClass);
+                }
+
+                $(p.targetDiv).removeClass(drawer.settings.targetOnClass);
+
+                drawer.settings.onHide();
             }
-        }
+        };
+
+        var open = function(p) {
+
+            $(p.targetDiv).addClass(drawer.settings.targetOnClass);
+
+            $(p.knob).removeClass(drawer.settings.buttonOffClass);
+            $(p.knob).addClass(drawer.settings.buttonOnClass);
+
+            $(p.targetDrawer).addClass("in");
+
+            if (p.hasContainer) {
+                $(p.targetContainer).addClass(drawer.settings.onClass);
+                $(p.targetContainer).show(drawer.settings.effect, {direction: p.direction});
+                $(p.targetDrawer).show();
+            }
+            else {
+                $(p.targetDrawer).addClass(drawer.settings.onClass);
+                $(p.targetDrawer).show(drawer.settings.effect, {direction: p.direction});
+            }
+
+            drawer.settings.onShow(p.targetDrawer);
+        };
+
+        init();
+
+        return drawer;
     };
 
-    // Plugin hook
-    $.fn.drawer = function (methodName)
-    {
-        if (methods[methodName])
-        {
-            return methods[methodName].apply(this, Array.prototype.slice.call(arguments, 1));
-        }
-        else if (typeof methodName === 'object' || !methodName)
-        {
-            return methods.init.apply(this, arguments);
-        }
-        else
-        {
-            $.error('Method ' + methodName + ' does not exist!');
-        }
-    };
-
-    // Plugin defaults
-    $.fn.drawer.defaults = {
-        onInit: undefined,
-        onOpen: undefined,
-        onClose: undefined,
-        onDrawerSwitch: undefined,
-        openEffect: undefined,
-        closeEffect: undefined,
-        knobOnClass: 'knob-selected'
-    }
-})(jQuery);
+}(jQuery));
